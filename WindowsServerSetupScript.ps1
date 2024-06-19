@@ -104,50 +104,49 @@ function Update-NetworkSettings{
     $input = Read-Host
     if ($input -eq "y") {
         # Netwerkinstellingen aanpassen
-        Write-Host "Wilt u een statisch IP configureren? (y/n)" -ForegroundColor Green
-        $input = Read-Host
-        if ($input -eq "y") {
-            $correctingevuld = $false
-            while(!$correctingevuld){
-                Write-Host "Wat is het IP-adres van de server?" -ForegroundColor Green
-                $IP = Read-Host "IP-adres"
-                Write-Host "Wat is het prefixlength van dit netwerk?" -ForegroundColor Green
-                $prefixLength = Read-Host "Prefix"
-                Write-Host "Wat is de default gateway van de server?" -ForegroundColor Green
-                $gateway = Read-Host "Default gateway"
-                Write-Host "Welke dns server gebruik je?" -ForegroundColor Green
-                $dnsServer1 = Read-Host "DNS 1"
-                $dnsServer2 = Read-Host "DNS 2"
+        $correctingevuld = $false
+        while(!$correctingevuld){
+            Write-Host "Wat word de naame van het netwerk?" -ForegroundColor Green
+            $netwerknaam = Read-Host "Netwerk"
+            Write-Host "Wat is het IP-adres van de server?" -ForegroundColor Green
+            $IP = Read-Host "IP-adres"
+            Write-Host "Wat is het prefixlength van dit netwerk?" -ForegroundColor Green
+            $prefixLength = Read-Host "Prefix"
+            Write-Host "Wat is de default gateway van de server?" -ForegroundColor Green
+            $gateway = Read-Host "Default gateway"
+            Write-Host "Welke dns server gebruik je?" -ForegroundColor Green
+            $dnsServer1 = Read-Host "DNS 1"
+            $dnsServer2 = Read-Host "DNS 2"
 
-                <# Gebruiker Controlleerd gegevens #>
-                Draw-Header
-                Write-Host "|                                 |"
-                Write-Host "|      Controleer de gegevens     |"
-                Write-Host "|                                 |"
-                Write-Host "| IP-adres: $IP"
-                Write-Host "| Prefix: $prefixLength"
-                Write-Host "| Default gateway: $gateway"
-                Write-Host "|                                 |"
-                Write-Host "| DNS 1: $dnsServer1"
-                Write-Host "| DNS 2: $dnsServer2"
-                Write-Host "|                                 |"
-                Write-Host "+---------------------------------+"
-                Write-Host ""
-                Write-Host "Is dit correct? (y/n)" -ForegroundColor Green
-                $input = Read-Host
-                if($input -eq "y"){ $correctingevuld = $true}
-            }
-
-
-            <# Netwerk instellen #>
-            $Null = Set-NetIPInterface -InterfaceAlias $($adapter.Name) -DHCP Disabled
-            Rename-NetAdapter -Name $($adapter.Name) -NewName "LAN"
-            # Set the IP address
-            Remove-NetIPAddress -InterfaceAlias $($adapter.Name) -Confirm:$false
-            Remove-NetRoute -InterfaceAlias $($adapter.Name) -DestinationPrefix "0.0.0.0/0" -Confirm:$false
-            New-NetIPAddress -InterfaceAlias "LAN" -IPAddress $IP -PrefixLength $prefixLength -DefaultGateway $gateway
-            Set-DnsClientServerAddress -InterfaceAlias "LAN" -ServerAddresses $dnsServer1, $dnsServer2
+            <# Gebruiker Controlleerd gegevens #>
+            Draw-Header
+            Write-Host "|                                 |"
+            Write-Host "|      Controleer de gegevens     |"
+            Write-Host "|                                 |"
+            Write-Host "| Netwerk: $netwerknaam"
+            Write-Host "| IP-adres: $IP"
+            Write-Host "| Prefix: $prefixLength"
+            Write-Host "| Default gateway: $gateway"
+            Write-Host "|                                 |"
+            Write-Host "| DNS 1: $dnsServer1"
+            Write-Host "| DNS 2: $dnsServer2"
+            Write-Host "|                                 |"
+            Write-Host "+---------------------------------+"
+            Write-Host ""
+            Write-Host "Is dit correct? (y/n)" -ForegroundColor Green
+            $input = Read-Host
+            if($input -eq "y"){ $correctingevuld = $true}
         }
+
+
+        <# Netwerk instellen #>
+        $Null = Set-NetIPInterface -InterfaceAlias $($adapter.Name) -DHCP Disabled
+        Remove-NetIPAddress -InterfaceAlias $($adapter.Name) -Confirm:$false
+        Remove-NetRoute -InterfaceAlias $($adapter.Name) -DestinationPrefix "0.0.0.0/0" -Confirm:$false
+        Rename-NetAdapter -Name $($adapter.Name) -NewName $netwerknaam
+        # Set the IP address
+        New-NetIPAddress -InterfaceAlias $netwerknaam -IPAddress $IP -PrefixLength $prefixLength -DefaultGateway $gateway
+        Set-DnsClientServerAddress -InterfaceAlias $netwerknaam -ServerAddresses $dnsServer1, $dnsServer2
     }
     Write-Host "Netwerkinstellingen zijn bijgewerkt" -ForegroundColor Green
     Write-Host "Druk op een knop om door te gaan..." -ForegroundColor Green
@@ -331,7 +330,7 @@ Function Draw-Menu{
     Write-Host "| 3. Netwerk Instellen            |"
     Write-Host "| 4. Rollen Toevoegen             |"
     Write-Host "| 5. Domein Aanmaken              |"
-    Write-Host "| 6. DHCP Configureren            |"
+    Write-Host "| 6. DHCP Configureren(Werkt nog nIet)"
     Write-Host "|                                 |"
     Write-Host "| 7. Credits                      |"
     Write-Host "|                                 |"
