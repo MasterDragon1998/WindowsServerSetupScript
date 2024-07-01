@@ -51,6 +51,7 @@ if(!$settingsalreadymade){
         Write-Host "Moet er een nieuw domein aangemaakt worden? (y/n)" -ForegroundColor Green
         $moetNieuwdomeinaanmaken = Read-Host
         if($moetNieuwdomeinaanmaken -eq "y"){
+            $moetNieuwdomeinaanmaken = $true
             Write-Host "Wat word de naam van het nieuwe domein? (geen .local toevoegen)" -ForegroundColor Green
             $domeinnaam = Read-Host
             $netbiosnaam = $domeinnaam
@@ -61,6 +62,7 @@ if(!$settingsalreadymade){
             $safemodepassword = ConvertFrom-SecureString -SecureString $safemodepassword
             <# Forest level? #>
         }else{
+            $moetNieuwdomeinaanmaken = $false
             Write-Host "Aan welk domein moet de server toegevoegd worden?" -ForegroundColor Green
             $domeinnaam = Read-Host
         }
@@ -90,6 +92,9 @@ if(!$settingsalreadymade){
         Write-Host "Wilt u een DHCP Server installeren en configureren? (y/n) " -ForegroundColor Green
         $moetDHCPinstalleren = Read-Host
         <# DHCP Configs etc. #>
+        if($moetDHCPinstalleren -eq "y"){
+            $moetDHCPinstalleren = $true
+        }else{$moetNieuwdomeinaanmaken = $false}
 
         <#config check #>
         Draw-Header
@@ -98,7 +103,7 @@ if(!$settingsalreadymade){
         Write-Host "|                                                   |"
         Write-Host "|  Servernaam: $ServerName"
         Write-Host "|                                                   |"
-        if($moetNieuwdomeinaanmaken -eq "y"){
+        if($moetNieuwdomeinaanmaken -eq $true){
         Write-Host "|               Nieuw domein aanmaken               |"
         Write-Host "|  Nieuw domein naam: $domeinnaam"
         }else{
@@ -159,7 +164,7 @@ if(!$settingsalreadymade){
     Write-Host -ForeGroundColor Green 'Tijdzone is ingesteld op W. Europe'
     Restart-Service w32time
     <# ethernet interfaces configureren #>
-    if($ethernetconfiguratieaanpassen -eq "y"){
+    if($ethernetconfiguratieaanpassen -eq $true){
         Write-Host "Name: $($adapter.Name) - $($adapter.IPAddress)"
         Rename-NetAdapter -Name $($adapter.Name) -NewName $interfacenaam
         New-NetIPAddress -InterfaceAlias $interfacenaam -IPAddress $IP -PrefixLength $prefixLength -DefaultGateway $gateway
@@ -173,7 +178,7 @@ if(!$settingsalreadymade){
     if((Get-WindowsFeature -Name DNS).InstallState -eq "Installed"){}else{
         Add-WindowsFeature -Name DNS -IncludeManagementTools
     }
-    if($moetDHCPinstalleren -eq "y"){
+    if($moetDHCPinstalleren -eq $true){
         if((Get-WindowsFeature -Name DHCP).InstallState -eq "Installed"){}else{
             Add-WindowsFeature -Name DHCP -IncludeManagementTools
         }
@@ -211,7 +216,7 @@ if(!$settingsalreadymade){
     <# Settings bestaan al #>
     Draw-Header
     <# Domein Promoten #>
-    if($moetNieuwdomeinaanmaken -eq "y"){
+    if($moetNieuwdomeinaanmaken -eq $true){
         <# Nieuw Domein Aanmaken #>
         Write-Host "Domein Promoten"
         Install-ADDSForest -DomainName $domeinnaam -DomainNetBiosName $netbiosnaam -CreateDnsDelegation:$false -InstallDns:$true -NoRebootOnCompletion:$false -SafeModeAdministratorPassword:$safemodepassword -Force
