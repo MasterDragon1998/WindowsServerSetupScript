@@ -64,7 +64,7 @@ function Computer-Herstarten {
     if($input -eq "y"){
         $username = Read-Host "Gebruikersnaam"
         $password = Read-Host -Prompt 'Geef het Administrator wachtwoord op' -AsSecureString
-        $password = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($password))
+        <# $password = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($password)) #>
     
         # Set auto-logon settings to run once
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" -Name "AutoLogon" -Type String -Value "rundll32.exe user32.dll,LockWorkStation"
@@ -261,10 +261,31 @@ function Create-Domain {
             $domeinnaam = Read-Host
             $netbiosnaam = $domeinnaam
             $domeinnaam += ".local"
+
+            <# Safemodewachtwoord#>
+            $wachtwoordcorrect = $false
+            while(!$wachtwoordcorrect){
+                Write-Host "Wat is je SafeModePassword? (minimaal 8 tekens)" -ForegroundColor Green 
+                $safemodePassword = Read-Host "SafeModePassword" -AsSecureString
+                Write-Host "Herhaal Safemode wachtwoord" -ForegroundColor green
+                $safemodePassword2 = Read-Host "SafeModePassword" -AsSecureString
+
+                $passwd1 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($safemodePassword))
+                $passwd2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($safemodePassword2))
+                if($passwd1 -eq $passwd2){
+                    <# Wachtwoord correct #>
+                    $wachtwoordcorrect = $true
+                }else{
+                    <# Not equal #>
+                    Write-Host "Wachtwoorden komen niet overeen, probeer opnieuw"
+                }
+            }
+
             Draw-Header
             Write-Host "|                                 |"
             Write-Host "|   Domein Naam : $domeinnaam     "
             Write-Host "|   NetBIOS Naam: $netbiosnaam    "
+            Write-Host "|                                 |"
             Write-Host "+---------------------------------+"
             Write-Host ""
             Write-Host "kloppen de bovenstaande gegevens? (y/n)" -ForegroundColor Green
@@ -278,7 +299,8 @@ function Create-Domain {
             Write-Host "Active Directory is geinstalleerd"
         }
         Write-Host "Domein Promoten"
-        Install-ADDSForest -DomainName $domeinnaam -DomainNetBiosName $netbiosnaam -CreateDnsDelegation:$false -InstallDns:$true -NoRebootOnCompletion:$false -Force
+        Install-ADDSForest -DomainName $domeinnaam -DomainNetBiosName $netbiosnaam -CreateDnsDelegation:$false -InstallDns:$true -NoRebootOnCompletion:$false -Force -SafeModeAdministratorPassword $safemodePassword
+        Read-Host
         Computer-Herstarten
     }else{
         <# Domein Joinen #>
