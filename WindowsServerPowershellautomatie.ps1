@@ -1,3 +1,13 @@
+<# Debug #>
+$debug = $true
+Function Debug-Pause{
+    if($debug){
+        Write-Host "Debug pause" -ForegroundColor Magenta
+        Write-Host "Press any key to continue" -ForegroundColor Magenta
+        Read-Host
+    }
+}
+
 <# Script als Administrator draaien #>
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Start-Process PowerShell -Verb RunAs "-NoProfile -ExecutionPolicy Bypass -Command `"cd '$pwd'; & '$PSCommandPath';`"";
@@ -87,14 +97,14 @@ if(!$settingsalreadymade){
             Write-Host "Welke dns server gebruik je?" -ForegroundColor Green
             $dnsServer1 = Read-Host "DNS 1"
             $dnsServer2 = Read-Host "DNS 2"
-        }
+        }else{$ethernetconfiguratieaanpassen = $false}
         <# DHCP #>
         Write-Host "Wilt u een DHCP Server installeren en configureren? (y/n) " -ForegroundColor Green
         $moetDHCPinstalleren = Read-Host
         <# DHCP Configs etc. #>
         if($moetDHCPinstalleren -eq "y"){
             $moetDHCPinstalleren = $true
-        }else{$moetNieuwdomeinaanmaken = $false}
+        }else{$moetDHCPinstalleren = $false}
 
         <#config check #>
         Draw-Header
@@ -209,7 +219,7 @@ if(!$settingsalreadymade){
 
     Write-Host "De computer zal zo herstarten..." -ForegroundColor Green
     Start-Sleep(3)
-    #Read-Host
+    Debug-Pause
     <# Computer hernoemen #>
     Rename-Computer -NewName $ServerName -LocalCredential Administrator -Restart
 }else{
@@ -227,6 +237,6 @@ if(!$settingsalreadymade){
     Write-Host "De server is geconfigureerd." -ForegroundColor Green
     Write-Host "De computer zal zo herstarten..." -ForegroundColor Green
     Start-Sleep(3)
-    Read-Host
+    Debug-Pause
     Restart-Computer -Force
 }
