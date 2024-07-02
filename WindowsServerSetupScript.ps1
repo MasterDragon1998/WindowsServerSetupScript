@@ -239,6 +239,12 @@ function Create-Domain {
         Update-ServerName
     }
 
+    Write-Host "Is de tijdzone goed geconfigureerd? (y/n)" -ForegroundColor Green
+    $input = Read-Host
+    if($input -eq "n"){
+        Update-Timezone
+    }
+
     <# Controleerd of in deze sessie Active Directory al geinstalleerd is #>
     if(!$hasActiveDirectory){
         <# Rol installeren #>
@@ -311,8 +317,65 @@ function Create-Domain {
 }
 
 function Setup-DHCP {
+    $ipv4Address = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notlike "127.0.0.1"}).IPAddress
+    $adapter = Get-NetAdapter | Select-Object Name, @{Name="IPAddress";Expression={(Get-NetIPAddress -InterfaceAlias $_.Name).IPAddress}}
     Draw-Header
+    Write-Host "|                                 |"
+    Write-Host "|      DHCP Server Instellen      |"
+    Write-Host "| Name: $($adapter.Name) - $($adapter.IPAddress)"
+    Write-Host "|                                 |"
+    Write-Host "+---------------------------------+"
+    
 
+    # Install DHCP server role
+    if((Get-WindowsFeature -Name DHCP).InstallState -eq "Installed"){}else{
+        Write-Host "DHCP Rol is nog niet geinstalleerd en zal zometeen worden geinstalleerd" -ForegroundColor Green
+        Write-Host "Wilt u doorgaan (y/n)" -ForegroundColor Green
+        $input = Read-Host
+        if ($input -eq "y") {
+            Add-WindowsFeature -Name DHCP -IncludeManagementTools
+            Write-Host "DHCP Rol geinstalleerd" -ForegroundColor Green
+        }
+    }
+    
+    if((Get-WindowsFeature -Name DHCP).InstallState -eq "Installed"){
+        <# DHCP Rol is geinstalleerd #>
+        if((Get-WindowsFeature -Name AD-Domain-Services).InstallState -eq "Installed"){
+            Write-Host "DHCP Server Instellen"
+
+            # Authorize DHCP Server in AD
+            Add-DhcpServerInDC -DnsName $activedomainname -IPAddress $ipv4Address
+
+            # Create DHCP Scope
+            # Add-DhcpServerv4Scope -Name "OfficeScope" -StartRange 192.168.1.100 -EndRange 192.168.1.200 -SubnetMask 255.255.255.0 -State Active
+
+            <# Configure Scope Options
+            Set-DhcpServerv4OptionValue -ScopeId 192.168.1.0 -Router 192.168.1.1
+            Set-DhcpServerv4OptionValue -ScopeId 192.168.1.0 -DnsServer 192.168.1.2,192.168.1.3
+            Set-DhcpServerv4Scope -ScopeId 192.168.1.0 -LeaseDuration 8.00:00:00
+
+            # Verify Configuration
+            Get-DhcpServerv4Scope
+            Get-DhcpServerv4OptionValue -ScopeId 192.168.1.0 #>
+
+            # Configure DHCP scope
+            $scopeName = Read-Host "Enter the scope name"
+            $startRange = Read-Host "Enter the start IP address of the scope"
+            $endRange = Read-Host "Enter the end IP address of the scope"
+            $subnetMask = Read-Host "Enter the subnet mask"
+            $defaultGateway = Read-Host "Enter the default gateway"
+            $dnsServer = Read-Host "Enter the DNS server"
+
+            Import-Module DhcpServer
+
+            Add-DhcpServerv4Scope -Name "TEST" -StartRange $startRange -EndRange $endRange -SubnetMask $subnetMask
+            Set-DhcpServerv4OptionValue -ScopeId 192.168.2.0 -OptionId 3 -Value $defaultGateway
+            Set-DhcpServerv4OptionValue -ScopeId 192.168.2.0 -OptionId 6 -Value $dnsServer 
+
+            Write-Host "DHCP server setup complete"
+            Read-Host
+        }
+    }
 }
 
 $WinFeatureActiveDirectory = $false
