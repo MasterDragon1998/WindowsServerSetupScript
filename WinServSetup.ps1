@@ -57,7 +57,7 @@ Function Resolve-YesNo{
     }
 }
 
-function Restart-Computer {
+function Reset-Computer {
     <# Computer Herstarten #>
     # Create a RunOnce registry key to run the script after reboot
     $registryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce"
@@ -95,8 +95,8 @@ Function Update-Timezone{
 function Update-ServerName{
     <# Server naam instellen #>
     Show-Header
-    Write-Host "Om deze actie te voltooien moet de server zometeen opnieuw opstarten" -ForeGroundColor Green
-    Write-Host "Weet u zeker dat u de servernaam wilt veranderen? (y/n)?" -ForegroundColor Green
+    Write-Host "Om deze actie te voltooien moet de server zometeen opnieuw opstarten." -ForeGroundColor Green
+    Write-Host "Weet u zeker dat u de servernaam wilt veranderen? (y/n)" -ForegroundColor Green
     $choice = Resolve-YesNo
     if($choice -eq $true){
         <# Naam moet worden aangepast #>
@@ -104,53 +104,54 @@ function Update-ServerName{
         $ServerName = Read-Host "Server naam"
         Rename-Computer -NewName $ServerName
 
-        Restart-Computer
+        Reset-Computer
     }
 }
 
 function Update-NetworkSettings{
-    Draw-Header
-    $adapter = Get-NetAdapter | Select-Object Name, @{Name="IPAddress";Expression={(Get-NetIPAddress -InterfaceAlias $_.Name).IPAddress}}
-    Write-Host "Name: $($adapter.Name) - $($adapter.IPAddress)"
+    $correctingevuld = $false
+    while(!$correctingevuld){
+        Show-Header
+        $adapter = Get-NetAdapter | Select-Object Name, @{Name="IPAddress";Expression={(Get-NetIPAddress -InterfaceAlias $_.Name).IPAddress}}
+        Write-Host "Name: $($adapter.Name) - $($adapter.IPAddress)"
 
-    Write-Host ""
-    Write-Host "Wil je netwerkinstellingen aanpassen? (y/n)" -ForegroundColor Green
-    $choice = Resolve-YesNo
-    if ($choice -eq $true) {
+        Write-Host ""
+        Write-Host "Wil je netwerkinstellingen aanpassen? (y/n)" -ForegroundColor Green
+        $choice = Resolve-YesNo
+        if (!$choice -eq $true) { return; }
+
         # Netwerkinstellingen aanpassen
-        $correctingevuld = $false
-        while(!$correctingevuld){
-            Write-Host "Wat word de naam van het netwerk?" -ForegroundColor Green
-            $netwerknaam = Read-Host "Netwerk"
-            Write-Host "Wat is het IP-adres van de server?" -ForegroundColor Green
-            $IP = Read-Host "IP-adres"
-            Write-Host "Wat is het prefixlength van dit netwerk?" -ForegroundColor Green
-            $prefixLength = Read-Host "Prefix"
-            Write-Host "Wat is de default gateway van de server?" -ForegroundColor Green
-            $gateway = Read-Host "Default gateway"
-            Write-Host "Welke dns server gebruik je?" -ForegroundColor Green
-            $dnsServer1 = Read-Host "DNS 1"
-            $dnsServer2 = Read-Host "DNS 2"
+        Write-Host "Wat word de naam van het netwerk?" -ForegroundColor Green
+        $netwerknaam = Read-Host "Netwerk"
+        Write-Host "Wat is het IP-adres van de server?" -ForegroundColor Green
+        $IP = Read-Host "IP-adres"
+        Write-Host "Wat is het prefixlength van dit netwerk?" -ForegroundColor Green
+        $prefixLength = Read-Host "Prefix"
+        Write-Host "Wat is de default gateway van de server?" -ForegroundColor Green
+        $gateway = Read-Host "Default gateway"
+        Write-Host "Welke dns server gebruik je?" -ForegroundColor Green
+        $dnsServer1 = Read-Host "DNS 1"
+        $dnsServer2 = Read-Host "DNS 2"
 
-            <# Gebruiker Controlleerd gegevens #>
-            Draw-Header
-            Write-Host "|                                 |"
-            Write-Host "|      Controleer de gegevens     |"
-            Write-Host "|                                 |"
-            Write-Host "| Netwerk: $netwerknaam"
-            Write-Host "| IP-adres: $IP"
-            Write-Host "| Prefix: $prefixLength"
-            Write-Host "| Default gateway: $gateway"
-            Write-Host "|                                 |"
-            Write-Host "| DNS 1: $dnsServer1"
-            Write-Host "| DNS 2: $dnsServer2"
-            Write-Host "|                                 |"
-            Write-Host "+---------------------------------+"
-            Write-Host ""
-            Write-Host "Is dit correct? (y/n)" -ForegroundColor Green
-            $choice = Resolve-YesNo
-            if($choice -eq $true){ $correctingevuld = $true}
-        }
+        <# Gebruiker Controlleerd gegevens #>
+        Show-Header
+        Write-Host "|                                                   |"
+        Write-Host "|               Controleer de gegevens              |"
+        Write-Host "|                                                   |"
+        Write-Host "| Netwerk: $netwerknaam"
+        Write-Host "| IP-adres: $IP"
+        Write-Host "| Prefix: $prefixLength"
+        Write-Host "| Default gateway: $gateway"
+        Write-Host "|                                                   |"
+        Write-Host "| DNS 1: $dnsServer1"
+        Write-Host "| DNS 2: $dnsServer2"
+        Write-Host "|                                                   |"
+        Write-Host "+---------------------------------------------------+"
+        Write-Host ""
+        Write-Host "Is dit correct? (y/n)" -ForegroundColor Green
+        $choice = Resolve-YesNo
+        if($choice -eq $true){ $correctingevuld = $true}
+    }
 
 
         <# Netwerk instellen #>
@@ -161,9 +162,253 @@ function Update-NetworkSettings{
         # Set the IP address
         New-NetIPAddress -InterfaceAlias $netwerknaam -IPAddress $IP -PrefixLength $prefixLength -DefaultGateway $gateway
         Set-DnsClientServerAddress -InterfaceAlias $netwerknaam -ServerAddresses $dnsServer1, $dnsServer2
+
+
+        Write-Host "Netwerkinstellingen zijn bijgewerkt" -ForegroundColor Green
+        Write-Host "Druk op een knop om door te gaan..." -ForegroundColor Green
+        Read-Host
+}
+
+Function Update-Roles{
+    $rollen = @("Active Directory Domain Services", "DNS Server", "DHCP Server")
+    if($WinFeatureActiveDirectory){$rollen[0]="Active Directory Domain Services (Geinstalleerd)"}
+    if($WinFeatureDNS){$rollen[1]="DNS Server (Geinstalleerd)"}
+    if($WinFeatureDHCP){$rollen[2]="DHCP Server (Geinstalleerd)"}
+    $gekozenrollen = @()
+    $rollengekozen = $false
+
+    while(!$rollengekozen){
+        Show-Header
+        for ($i=0;$i -lt $rollen.Count; $i++){
+            $isalgekozen = $false
+            foreach($gekozenrol in $gekozenrollen){
+                if($rollen[$i] -eq $gekozenrol){
+                    <# Rol is al gekozen #>
+                    $isalgekozen = $true
+                }
+            }
+            if($isalgekozen){
+                Write-Host "[X] $i : $($rollen[$i])"
+            }else{
+                Write-Host "[ ] $i : $($rollen[$i])"
+            }
+        }
+        $i++
+        Write-Host "    $i : Gekozen Opties Installeren!"
+
+        $input = Read-Host "Select: "
+        if($input){
+            if($input -eq 4){
+                <# Doorgaan #>
+                $rollengekozen = $true
+            }else{
+                $isalgekozen = $false
+                for ($i=0;$i -lt $gekozenrollen.Count; $i++){
+                    if($rollen[$input] -eq $gekozenrollen[$i]){
+                        <# Rol is al gekozen #>
+                        $isalgekozen = $true
+                        $gekozenrollen[$i] = $null
+                    }
+                }
+                if(!$isalgekozen){
+                    $gekozenrollen += $rollen[$input]
+                }
+            }
+            
+        }
+        Write-Host "Gekozen rollen: $gekozenrollen"
     }
-    Write-Host "Netwerkinstellingen zijn bijgewerkt" -ForegroundColor Green
-    Write-Host "Druk op een knop om door te gaan..." -ForegroundColor Green
+
+
+    $hasActiveDirectory
+    # Add the selected roles
+    foreach ($rol in $gekozenrollen) {
+        switch ($rol) {
+            "Active Directory Domain Services" {
+                $hasActiveDirectory = $true
+                Add-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+            }
+            "DNS Server" {
+                Add-WindowsFeature -Name DNS -IncludeManagementTools
+            }
+            "DHCP Server" {
+                Add-WindowsFeature -Name DHCP -IncludeManagementTools
+            }
+            default {
+                Write-Host "Unknown role: $rol"
+            }
+        }
+    }
+
+    if((Get-WindowsFeature -Name AD-Domain-Services).InstallState -eq "Installed"){
+        $WinFeatureActiveDirectory = $true
+    }
+    if((Get-WindowsFeature -Name DNS).InstallState -eq "Installed"){
+        $WinFeatureDNS = $true
+    }
+    if((Get-WindowsFeature -Name DHCP).InstallState -eq "Installed"){
+        $WinFeatureDHCP = $true
+    }
+}
+
+function Install-Domain {
+    Show-Header
+    if($WinFeatureActiveDirectory){$hasActiveDirectory=$true}
+
+    Show-Header
+    Write-Host "Heeft u de server al een naam gegeven? (y/n)" -ForegroundColor Green
+    $choice = Resolve-YesNo
+    if ($choice -eq $false) {
+        Write-Host "U moet uw server eerst een naam geven voordat het een domeincontroller kan worden" -ForegroundColor Green
+        Write-Host "Druk een knop in om door te gaan..." -ForegroundColor Green
+        Read-Host
+        Update-ServerName
+        return;
+    }
+
+    Write-Host "Is de tijdzone goed geconfigureerd? (y/n)" -ForegroundColor Green
+    $choice = Resolve-YesNo
+    if($input -eq $false){
+        Update-Timezone
+    }
+
+    <# Controleerd of in deze sessie Active Directory al geinstalleerd is #>
+    if(!$hasActiveDirectory){
+        <# Rol installeren #>
+        Write-Host "Active Directory word zometeen geinstalleerd, wilt u doorgaan met de installatie? (y/n)" -ForegroundColor Green
+        $choice = Resolve-YesNo
+        if($input -eq $true){
+            $hasActiveDirectory = $true
+        }
+    }
+    Show-Header
+
+    <# Domein promoten #>
+    Write-Host "Moet er een nieuw domein aangemaakt worden? (y/n)" -ForegroundColor Green
+    $choice = Resolve-YesNo
+    if($input -eq $true){
+        <# Nieuw Domein Aanmaken #>
+        $gegevenskloppen = $false
+        while(!$gegevenskloppen){
+            Write-Host "Wat word de naam van het nieuwe domein? (geen .local toevoegen)" -ForegroundColor Green
+            $domeinnaam = Read-Host
+            $netbiosnaam = $domeinnaam
+            $domeinnaam += ".local"
+
+            <# Safemodewachtwoord#>
+            $wachtwoordcorrect = $false
+            while(!$wachtwoordcorrect){
+                Write-Host "Wat is je SafeModePassword? (minimaal 8 tekens)" -ForegroundColor Green 
+                $safemodePassword = Read-Host "SafeModePassword" -AsSecureString
+                Write-Host "Herhaal Safemode wachtwoord" -ForegroundColor green
+                $safemodePassword2 = Read-Host "SafeModePassword" -AsSecureString
+
+                $passwd1 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($safemodePassword))
+                $passwd2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($safemodePassword2))
+                if($passwd1 -eq $passwd2){
+                    <# Wachtwoord correct #>
+                    $wachtwoordcorrect = $true
+                }else{
+                    <# Not equal #>
+                    Write-Host "Wachtwoorden komen niet overeen, probeer opnieuw"
+                }
+            }
+
+            Show-Header
+            Write-Host "|                                                   |"
+            Write-Host "|   Domein Naam : $domeinnaam     "
+            Write-Host "|   NetBIOS Naam: $netbiosnaam    "
+            Write-Host "|                                                   |"
+            Write-Host "+---------------------------------------------------+"
+            Write-Host ""
+            Write-Host "kloppen de bovenstaande gegevens? (y/n)" -ForegroundColor Green
+            $choice = Resolve-YesNo
+            if($choice -eq $true){
+                $gegevenskloppen = $true
+            }
+        }
+        if(!$WinFeatureActiveDirectory){
+            Add-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+            Write-Host "Active Directory is geinstalleerd"
+        }
+        Write-Host "Domein Promoten"
+        Install-ADDSForest -DomainName $domeinnaam -DomainNetBiosName $netbiosnaam -CreateDnsDelegation:$false -InstallDns:$true -NoRebootOnCompletion:$false -Force -SafeModeAdministratorPassword $safemodePassword
+        Read-Host
+        Reset-Computer
+    }else{
+        <# Domein Joinen #>
+        Write-Host "Aan welk domein zou je de server toe willen voegen?" -ForegroundColor Green
+        $domeinnaam = Read-Host
+    }
+    
+}
+
+function Install-DHCP {
+    $ipv4Address = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -notlike "127.0.0.1"}).IPAddress
+    $adapter = Get-NetAdapter | Select-Object Name, @{Name="IPAddress";Expression={(Get-NetIPAddress -InterfaceAlias $_.Name).IPAddress}}
+    Show-Header
+    Write-Host "|                                                   |"
+    Write-Host "|               DHCP Server Instellen               |"
+    Write-Host "| Name: $($adapter.Name) - $($adapter.IPAddress)"
+    Write-Host "|                                                   |"
+    Write-Host "+---------------------------------------------------+"
+
+    # Install DHCP server role
+    $DHCPnoginstalleren = $false
+    if((Get-WindowsFeature -Name DHCP).InstallState -eq "Installed"){}else{
+        Write-Host "DHCP Rol is nog niet geinstalleerd en zal zometeen worden geinstalleerd." -ForegroundColor Green
+        Write-Host "Wilt u doorgaan (y/n)" -ForegroundColor Green
+        $choice = Resolve-YesNo
+        if ($choice -eq $true) { $DHCPnoginstalleren = $true }
+    }
+    
+
+    Write-Host "DHCP Server Instellen" -ForegroundColor Green
+    $gegevenskloppen = $false
+    while(!$gegevenskloppen){
+        # Configure DHCP scope
+        $scopeName = Read-Host "Enter the scope name"
+        $startRange = Read-Host "Enter the start IP address of the scope"
+        $endRange = Read-Host "Enter the end IP address of the scope"
+        $subnetMask = Read-Host "Enter the subnet mask"
+        $defaultGateway = Read-Host "Enter the default gateway"
+        $dnsServer = Read-Host "Enter the DNS server"
+
+        Write-Host "|                                                   |"
+        Write-Host "|               Controleer de gegevens              |"
+        Write-Host "|                                                   |"
+        Write-Host "|   Scopenaam: $scopeName"
+        Write-Host "|   Start IP Range: $startRange"
+        Write-Host "|   End IP Range: $endRange"
+        Write-Host "|   Subnetmask: $subnetMask"
+        Write-Host "|   Default Gateway: $defaultGateway"
+        Write-Host "|   DNS Server: $dnsServer"
+        Write-Host "|                                                   |"
+        Write-Host "+---------------------------------------------------+"
+        Write-Host "Kloppen de bovenstaande gegevens?" -ForegroundColor Green
+        $choice = Resolve-YesNo
+        if ($choice -eq $true) { $gegevenskloppen = $true }
+    }
+
+    <# DHCP Rol installeren als nodig #>
+    if($DHCPnoginstalleren -eq $true){
+        Add-WindowsFeature -Name DHCP -IncludeManagementTools
+        Write-Host "DHCP Rol geinstalleerd" -ForegroundColor Green
+    }
+
+        if((Get-WindowsFeature -Name AD-Domain-Services).InstallState -eq "Installed"){
+        # Authorize DHCP Server in AD
+        Add-DhcpServerInDC -DnsName $activedomainname -IPAddress $ipv4Address
+    }
+
+    <# DHCP Configureren #>
+    Import-Module DhcpServer
+
+    Add-DhcpServerv4Scope -Name $scopeName -StartRange $startRange -EndRange $endRange -SubnetMask $subnetMask
+    Set-DhcpServerv4OptionValue -ScopeId 192.168.2.0 -OptionId 3 -Value $defaultGateway
+    Set-DhcpServerv4OptionValue -ScopeId 192.168.2.0 -OptionId 6 -Value $dnsServer 
+
+    Write-Host "DHCP server setup complete"
     Read-Host
 }
 
@@ -253,10 +498,29 @@ Function Show-Menu{
         Update-NetworkSettings
         Show-Menu
     }elseif($choice -eq "5"){
+        Update-Roles
         Show-Menu
     }elseif($choice -eq "6"){
+        Install-Domain
         Show-Menu
     }elseif($choice -eq "7"){
+        Show-Header
+        $adapter = Get-NetAdapter | Select-Object Name, @{Name="IPAddress";Expression={(Get-NetIPAddress -InterfaceAlias $_.Name).IPAddress}}
+        Write-Host "|                                                   |"
+        Write-Host "|               Ethernet Instellingen               |"
+        Write-Host "| Name: $($adapter.Name) - $($adapter.IPAddress)"
+        Write-Host "|                                                   |"
+        Write-Host "+---------------------------------------------------+"
+        Write-Host "Heeft de server een statish IP adres? (y/n)" -ForegroundColor Green
+        $choice = Resolve-YesNo
+        if(!$choice -eq $true){
+            <# Server heeft geen statisch IP adres #>
+            Write-Host "Het word sterk aangeraden om een statish IP te gebruiken als DHCP Server!!" -ForegroundColor Green
+            Write-Host "Druk een knop om door te gaan..." -ForegroundColor Green
+            Read-Host
+            Update-NetworkSettings
+        }
+        Install-DHCP
         Show-Menu
     }elseif($choice -eq "q"){}else{
         Show-Menu

@@ -1,0 +1,5 @@
+	-	Ethernet settings data mooier weergeven (Default gateway)
+	-	Heel Update-NetworkSettings fixen!!!!!!!
+	-	Foutmelding bij Update-NetworkSettings fixen wanneer die voor het eerst configureert (Remove-NetIPAddress -InterfaceAlias $($adapter.Name) -Confirm:$false)
+	-	DHCP Verder afmaken
+	-	Install-Domain controleren en afmaken
