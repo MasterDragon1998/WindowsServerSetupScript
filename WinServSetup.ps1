@@ -115,10 +115,6 @@ function Update-NetworkSettings{
         $adapter = Get-NetAdapter | Select-Object Name, @{Name="IPAddress";Expression={(Get-NetIPAddress -InterfaceAlias $_.Name).IPAddress}}
         Write-Host "Name: $($adapter.Name) - $($adapter.IPAddress)"
 
-        Write-Host ""
-        Write-Host "Wil je netwerkinstellingen aanpassen? (y/n)" -ForegroundColor Green
-        $choice = Resolve-YesNo
-        if (!$choice -eq $true) { return; }
 
         # Netwerkinstellingen aanpassen
         Write-Host "Wat word de naam van het netwerk?" -ForegroundColor Green
@@ -286,7 +282,7 @@ function Install-Domain {
     <# Domein promoten #>
     Write-Host "Moet er een nieuw domein aangemaakt worden? (y/n)" -ForegroundColor Green
     $choice = Resolve-YesNo
-    if($input -eq $true){
+    if($input -eq $true){ # <!---- Klopt iets niet
         <# Nieuw Domein Aanmaken #>
         $gegevenskloppen = $false
         while(!$gegevenskloppen){
@@ -359,7 +355,7 @@ function Install-DHCP {
         Write-Host "DHCP Rol is nog niet geinstalleerd en zal zometeen worden geinstalleerd." -ForegroundColor Green
         Write-Host "Wilt u doorgaan (y/n)" -ForegroundColor Green
         $choice = Resolve-YesNo
-        if ($choice -eq $true) { $DHCPnoginstalleren = $true }
+        if ($choice -eq $true) { $DHCPnoginstalleren = $true }else{ return; }
     }
     
 
@@ -373,19 +369,20 @@ function Install-DHCP {
         $subnetMask = Read-Host "Enter the subnet mask"
         $defaultGateway = Read-Host "Enter the default gateway"
         $dnsServer = Read-Host "Enter the DNS server"
+        
+        Show-Header
 
         Write-Host "|                                                   |"
         Write-Host "|               Controleer de gegevens              |"
         Write-Host "|                                                   |"
         Write-Host "|   Scopenaam: $scopeName"
-        Write-Host "|   Start IP Range: $startRange"
-        Write-Host "|   End IP Range: $endRange"
+        Write-Host "|   IP Range: $startRange - $endRange"
         Write-Host "|   Subnetmask: $subnetMask"
         Write-Host "|   Default Gateway: $defaultGateway"
         Write-Host "|   DNS Server: $dnsServer"
         Write-Host "|                                                   |"
         Write-Host "+---------------------------------------------------+"
-        Write-Host "Kloppen de bovenstaande gegevens?" -ForegroundColor Green
+        Write-Host "Kloppen de bovenstaande gegevens? (y/n)" -ForegroundColor Green
         $choice = Resolve-YesNo
         if ($choice -eq $true) { $gegevenskloppen = $true }
     }
@@ -396,9 +393,15 @@ function Install-DHCP {
         Write-Host "DHCP Rol geinstalleerd" -ForegroundColor Green
     }
 
-        if((Get-WindowsFeature -Name AD-Domain-Services).InstallState -eq "Installed"){
+    if((Get-WindowsFeature -Name AD-Domain-Services).InstallState -eq "Installed"){
         # Authorize DHCP Server in AD
         Add-DhcpServerInDC -DnsName $activedomainname -IPAddress $ipv4Address
+    }
+
+    # Create security groups for DHCP Server Administration
+    $securityGroups = "DHCP Administrators", "DHCP Users"
+    foreach ($group in $securityGroups) {
+        New-LocalGroup -Name $group -ErrorAction SilentlyContinue
     }
 
     <# DHCP Configureren #>
@@ -406,9 +409,10 @@ function Install-DHCP {
 
     Add-DhcpServerv4Scope -Name $scopeName -StartRange $startRange -EndRange $endRange -SubnetMask $subnetMask
     Set-DhcpServerv4OptionValue -ScopeId 192.168.2.0 -OptionId 3 -Value $defaultGateway
-    Set-DhcpServerv4OptionValue -ScopeId 192.168.2.0 -OptionId 6 -Value $dnsServer 
+    Set-DhcpServerv4OptionValue -ScopeId 192.168.2.0 -OptionId 6 -Value $dnsServer
 
-    Write-Host "DHCP server setup complete"
+    Write-Host "DHCP server setup complete" -ForegroundColor Green
+    Write-Host "Druk een knop om door te gaan..." -ForegroundColor Green
     Read-Host
 }
 
@@ -453,6 +457,16 @@ Function Show-Header{
 }
 
 Function Show-Menu{
+    if((Get-WindowsFeature -Name AD-Domain-Services).InstallState -eq "Installed"){
+        $WinFeatureActiveDirectory = $true
+    }
+    if((Get-WindowsFeature -Name DNS).InstallState -eq "Installed"){
+        $WinFeatureDNS = $true
+    }
+    if((Get-WindowsFeature -Name DHCP).InstallState -eq "Installed"){
+        $WinFeatureDHCP = $true
+    }
+
     $activecurrenttime = Get-Date -Format "HH:mm:ss";
 
     Show-Header
@@ -495,7 +509,12 @@ Function Show-Menu{
         Update-ServerName
         Show-Menu
     }elseif ($choice -eq "4"){
-        Update-NetworkSettings
+        Show-Header
+        $adapter = Get-NetAdapter | Select-Object Name, @{Name="IPAddress";Expression={(Get-NetIPAddress -InterfaceAlias $_.Name).IPAddress}}
+        Write-Host "Name: $($adapter.Name) - $($adapter.IPAddress)"
+        Write-Host "Wil je netwerkinstellingen aanpassen? (y/n)" -ForegroundColor Green
+        $choice = Resolve-YesNo
+        if ($choice -eq $true) { Update-NetworkSettings }
         Show-Menu
     }elseif($choice -eq "5"){
         Update-Roles

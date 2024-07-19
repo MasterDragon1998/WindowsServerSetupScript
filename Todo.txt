@@ -3,3 +3,5 @@
 	-	Foutmelding bij Update-NetworkSettings fixen wanneer die voor het eerst configureert (Remove-NetIPAddress -InterfaceAlias $($adapter.Name) -Confirm:$false)
 	-	DHCP Verder afmaken
 	-	Install-Domain controleren en afmaken
+	-	DHCP Fixen
+	-	Tekst weghalen --->  if($input -eq $true){ # <!---- Klopt iets niet 
